@@ -31,11 +31,9 @@ class PsqlDatabaseCreator:
         if os.path.exists(self.create_error_path):
             os.remove(self.create_error_path)
 
-    def create(self):
+    def create(self, excluded_tables):
 
-        if self.use_existing_dump == True:
-            pass
-        else:
+        if self.use_existing_dump != True:
             cur_path = os.getcwd()
 
             pg_dump_path = get_pg_bin_path()
@@ -44,7 +42,8 @@ class PsqlDatabaseCreator:
 
             connection = '--dbname=postgresql://{0}@{2}:{3}/{4}?{1}'.format(self.source_dbc.user, urllib.parse.urlencode({'password': self.source_dbc.password}), self.source_dbc.host, self.source_dbc.port, self.source_dbc.db_name)
 
-            result = subprocess.run(['pg_dump', connection, '--schema-only', '--no-owner', '--no-privileges', '--section=pre-data']
+            exclude_table_arguments = self.__get_exclude_table_arguments(excluded_tables)
+            result = subprocess.run(['pg_dump', connection, '--schema-only', '--no-owner', '--no-privileges', '--section=pre-data'] + exclude_table_arguments
                     , stdout = subprocess.PIPE, stderr = subprocess.PIPE)
             if result.returncode != 0 or contains_errors(result.stderr):
                 raise Exception('Captuing pre-data schema failed. Details:\n{}'.format(result.stderr))
@@ -67,17 +66,17 @@ class PsqlDatabaseCreator:
         self.run_query(q)
 
 
-    def add_constraints(self):
-        if self.use_existing_dump == True:
-            pass
-        else:
+    def add_constraints(self, excluded_tables):
+        if self.use_existing_dump != True:
             cur_path = os.getcwd()
 
             pg_dump_path = get_pg_bin_path()
             if pg_dump_path != '':
                 os.chdir(pg_dump_path)
             connection = '--dbname=postgresql://{0}@{2}:{3}/{4}?{1}'.format(self.source_dbc.user, urllib.parse.urlencode({'password': self.source_dbc.password}), self.source_dbc.host, self.source_dbc.port, self.source_dbc.db_name)
-            result = subprocess.run(['pg_dump', connection, '--schema-only', '--no-owner', '--no-privileges', '--section=post-data']
+            exclude_table_arguments = self.__get_exclude_table_arguments(
+                excluded_tables)
+            result = subprocess.run(['pg_dump', connection, '--schema-only', '--no-owner', '--no-privileges', '--section=post-data'] + exclude_table_arguments
                     , stderr = subprocess.PIPE, stdout = subprocess.PIPE)
             if result.returncode != 0 or contains_errors(result.stderr):
                 raise Exception('Captuing post-data schema failed. Details:\n{}'.format(result.stderr))
@@ -85,6 +84,10 @@ class PsqlDatabaseCreator:
             os.chdir(cur_path)
 
             self.run_psql(result.stdout.decode('utf-8'))
+
+    def __get_exclude_table_arguments(self, excluded_tables):
+        return list(
+            map(lambda t: "--exclude-table={0}".format(t), excluded_tables))
 
     def __filter_commands(self, input):
 
