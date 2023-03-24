@@ -59,6 +59,9 @@ def get_pre_constraint_sql():
 def get_post_subset_sql():
     return _config["post_subset_sql"] if "post_subset_sql" in _config else []
 
+def get_only_use_specified_tables():
+    return _config["only_use_specified_tables"]
+
 def get_max_rows_per_table():
     return _config["max_rows_per_table"] if "max_rows_per_table" in _config else None
 

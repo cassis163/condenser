@@ -23,15 +23,10 @@ import shutil, os, uuid, time, itertools
 
 class Subset:
 
-    def __init__(self, source_dbc, destination_dbc, all_tables, clean_previous = True):
-        self.__source_dbc = source_dbc
-        self.__destination_dbc = destination_dbc
-
+    def __init__(self, source_dbc, destination_dbc, all_tables):
         self.__source_conn = source_dbc.get_db_connection(read_repeatable=True)
         self.__destination_conn = destination_dbc.get_db_connection()
-
         self.__all_tables = all_tables
-
         self.__db_helper = database_helper.get_specific_helper()
 
         self.__db_helper.turn_off_constraints(self.__destination_conn)
@@ -49,10 +44,23 @@ class Subset:
         print('Beginning subsetting with these direct targets: ' + str(config_reader.get_initial_target_tables()))
         start_time = time.time()
         processed_tables = set()
-        for idx, target in enumerate(config_reader.get_initial_targets()):
-            print_progress(target, idx+1, len(config_reader.get_initial_targets()))
-            self.__subset_direct(target, relationships)
-            processed_tables.add(target['table'])
+        initial_targets = config_reader.get_initial_targets()
+        if config_reader.get_only_use_specified_tables == True:
+            for idx, target in enumerate(initial_targets):
+                print_progress(target, idx+1, len(initial_targets))
+                self.__subset_direct(target, relationships)
+                processed_tables.add(target['table'])
+        else:
+            for table in self.__all_tables:
+                found_target = next(
+                    (x for x in initial_targets if ['table'] == table), None)
+                if found_target != None:
+                    self.__subset_direct(found_target, relationships)
+                    processed_tables.add(table)
+                else:
+                    self.__subset_direct_table(table, relationships)
+                    processed_tables.add(table)
+
         print('Direct target tables completed in {}s'.format(time.time()-start_time))
 
         # greedily grab rows with foreign keys to rows in the target strata
@@ -115,6 +123,14 @@ class Subset:
         else:
             raise ValueError('target table {} had no \'where\' or \'percent\' term defined, check your configuration.'.format(t))
         self.__db_helper.copy_rows(self.__source_conn, self.__destination_conn, q, mysql_db_name_hack(t, self.__destination_conn))
+
+    def __subset_direct_table(self, table, relationships):
+        columns_query = columns_to_copy(
+            table, relationships, self.__source_conn)
+        q = 'SELECT {} FROM {}'.format(
+            columns_query, fully_qualified_table(table))
+        self.__db_helper.copy_rows(self.__source_conn, self.__destination_conn,
+                                   q, mysql_db_name_hack(table, self.__destination_conn))
 
 
     def __subset_upstream(self, target, processed_tables, relationships):
