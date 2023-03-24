@@ -26,6 +26,9 @@ def get_preserve_fk_opportunistically():
 def get_initial_targets():
     return _config['initial_targets']
 
+def get_default_percent():
+    return _config['default_percent']
+
 def get_initial_target_tables():
     return [target["table"] for target in _config['initial_targets']]
 

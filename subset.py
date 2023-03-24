@@ -127,8 +127,8 @@ class Subset:
     def __subset_direct_table(self, table, relationships):
         columns_query = columns_to_copy(
             table, relationships, self.__source_conn)
-        q = 'SELECT {} FROM {}'.format(
-            columns_query, fully_qualified_table(table))
+        q = 'SELECT {} FROM {} WHERE random() < {}'.format(
+            columns_query, fully_qualified_table(table), float(config_reader.get_default_percent())/100)
         self.__db_helper.copy_rows(self.__source_conn, self.__destination_conn,
                                    q, mysql_db_name_hack(table, self.__destination_conn))
 
