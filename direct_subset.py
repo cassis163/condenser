@@ -30,8 +30,9 @@ if __name__ == '__main__':
     database = db_creator(db_type, source_dbc, destination_dbc)
     database.teardown()
 
-    excluded_tables = config_reader.get_excluded_tables()
-    database.create(excluded_tables)
+    excluded_tables = config_reader.get_excluded_tables(
+    ) + config_reader.get_excluded_tables_from_schema()
+    database.create(config_reader.get_excluded_tables_from_schema())
 
     # Get list of tables to operate on
     db_helper = database_helper.get_specific_helper()
